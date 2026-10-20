@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recap Studio - Dynamic Retiming</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-2xl w-full bg-slate-900 border border-slate-800 p-6 md:p-8 rounded-2xl shadow-2xl">
+    <div class="mb-6 border-b border-slate-800 pb-4">
+      <h1 class="text-2xl md:text-3xl font-extrabold text-indigo-400">Recap Studio</h1>
+      <p class="text-xs md:text-sm text-slate-400 mt-1">Dynamic Video Retiming Pipeline: Syncs SRT timestamps with voiceover audios automatically.</p>
+    </div>
+
+    <form id="recapForm" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">1. Master Video (.mp4)</label>
+        <input type="file" name="video" accept="video/*" required 
+               class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer bg-slate-800 rounded-lg border border-slate-700"/>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">2. Subtitle File (.srt)</label>
+        <input type="file" name="srt" accept=".srt" required 
+               class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer bg-slate-800 rounded-lg border border-slate-700"/>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">3. Audios Archive (.zip with 1.mp3, 2.mp3...)</label>
+        <input type="file" name="audio_zip" accept=".zip" required 
+               class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer bg-slate-800 rounded-lg border border-slate-700"/>
+      </div>
+
+      <button type="submit" id="submitBtn" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-500 transition rounded-xl font-bold shadow-lg">
+        Start Video Retiming & Sync
+      </button>
+    </form>
+
+    <div id="loader" class="hidden text-center mt-6">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400 mx-auto mb-3"></div>
+      <p id="statusMsg" class="text-sm text-indigo-300 font-medium">Uploading assets...</p>
+    </div>
+
+    <div id="results" class="hidden mt-6 border-t border-slate-800 pt-6">
+      <h2 class="text-lg font-bold text-emerald-400 mb-3">Rendering Complete!</h2>
+      <video id="player" controls class="w-full rounded-xl bg-black mb-4 aspect-video"></video>
+      <a id="downloadBtn" href="#" download class="block text-center w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition">
+        Download Synced Video
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('recapForm');
+    const loader = document.getElementById('loader');
+    const results = document.getElementById('results');
+    const statusMsg = document.getElementById('statusMsg');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      loader.classList.remove('hidden');
+      results.classList.add('hidden');
+      submitBtn.disabled = true;
+      statusMsg.innerText = "Uploading assets to server...";
+
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch('/api/process', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.detail || 'Upload failed');
+
+        const taskId = data.task_id;
+        pollTaskStatus(taskId);
+      } catch (err) {
+        alert('Error: ' + err.message);
+        loader.classList.add('hidden');
+        submitBtn.disabled = false;
+      }
+    };
+
+    function pollTaskStatus(taskId) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${taskId}`);
+          const data = await res.json();
+
+          if (data.status === 'processing') {
+            statusMsg.innerText = "Rendering & retiming segments with FFmpeg... Please wait.";
+          } else if (data.status === 'completed') {
+            clearInterval(interval);
+            loader.classList.add('hidden');
+            submitBtn.disabled = false;
+            
+            const player = document.getElementById('player');
+            player.src = data.download_url;
+            document.getElementById('downloadBtn').href = data.download_url;
+            results.classList.remove('hidden');
+          } else if (data.status === 'failed') {
+            clearInterval(interval);
+            loader.classList.add('hidden');
+            submitBtn.disabled = false;
+            alert('Pipeline failed: ' + (data.error || 'Unknown error'));
+          }
+        } catch (err) {
+          clearInterval(interval);
+          loader.classList.add('hidden');
+          submitBtn.disabled = false;
+        }
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
