@@ -48,9 +48,7 @@ def run_pipeline_task(task_id: str, video_path: str, srt_path: str, zip_path: st
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
+    return templates.TemplateResponse(request=request, name="index.html")
 @app.post("/api/process")
 async def process_video(
     background_tasks: BackgroundTasks,
