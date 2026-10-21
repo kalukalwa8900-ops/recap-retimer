@@ -15,7 +15,7 @@ app = FastAPI(title="Recap Video Retiming Tool")
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 OUTPUTS_DIR = BASE_DIR / "outputs"
-TEMPLATES_DIR = BASE_DIR / "templates"
+TEMPLATES_DIR = BASE_DIR
 
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
